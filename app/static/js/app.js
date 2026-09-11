@@ -1,25 +1,16 @@
-// ==========================================
-// PROJETO SABOR E CLIC - SCRIPT PRINCIPAL
-// Autor: Guilherme
-// Turma: 231 - Artes Visuais e design 
-// ==========================================
+// Sabor e Clic - Sistema de Gestão para Dark Kitchen
+// Integrantes: Guilherme, Arthur, Henzo e Diandro
+// Turma 231 - IFSP
 
-// Variaveis globais do carrinho de compras
 let itensCarrinho = [];
-let valorTotal = 0.0;
-let statusKds = "aguardando";
+let valorTotal = 0;
+let mesaSelecionada = null;
 
-// Aguarda o carregamento do HTML da pagina
 document.addEventListener("DOMContentLoaded", function() {
-    console.log("Iniciando scripts da aplicação Sabor e Clic...");
-    
-    // Pegando elementos da tela pelo ID
     let btnFinalizar = document.getElementById("btn-finalizar");
     let btnLimpar = document.getElementById("btn-limpar");
-    let divCarrinho = document.getElementById("lista-carrinho");
-    let spanTotal = document.getElementById("valor-total-exibido");
+    let inputCupom = document.getElementById("cupom-desconto");
 
-    // Verificacao simples se os botoes existem na tela
     if (btnFinalizar) {
         btnFinalizar.addEventListener("click", function() {
             finalizarPedido();
@@ -32,44 +23,44 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Chamada inicial para verificar o estado
-    atualizarResumo();
+    if (inputCupom) {
+        inputCupom.addEventListener("change", function() {
+            aplicarCupom(inputCupom.value);
+        });
+    }
+
+    carregarCarrinhoSalvo();
 });
 
-// Funcao para adicionar item ao carrinho
 function adicionarItem(idProduto, nomeProduto, precoProduto) {
-    if (!idProduto || !nomeProduto) {
-        console.log("Erro: Dados do produto incompletos.");
+    if (!idProduto || !nomeProduto || precoProduto <= 0) {
         return;
     }
 
-    let produtoExistente = false;
+    let itemEncontrado = false;
 
-    // Percorrendo o array para ver se ja existe o item
     for (let i = 0; i < itensCarrinho.length; i++) {
         if (itensCarrinho[i].id === idProduto) {
             itensCarrinho[i].qtd += 1;
-            produtoExistente = true;
+            itemEncontrado = true;
             break;
         }
     }
 
-    // Se nao existir, adiciona como novo
-    if (!produtoExistente) {
-        let novoItem = {
+    if (!itemEncontrado) {
+        let produto = {
             id: idProduto,
             nome: nomeProduto,
             preco: parseFloat(precoProduto),
             qtd: 1
         };
-        itensCarrinho.push(novoItem);
+        itensCarrinho.push(produto);
     }
 
-    console.log("Item adicionado: " + nomeProduto);
-    atualizarResumo();
+    salvarCarrinhoLocal();
+    atualizarInterface();
 }
 
-// Funcao para remover item do carrinho
 function removerItem(idProduto) {
     for (let i = 0; i < itensCarrinho.length; i++) {
         if (itensCarrinho[i].id === idProduto) {
@@ -81,10 +72,11 @@ function removerItem(idProduto) {
             break;
         }
     }
-    atualizarResumo();
+
+    salvarCarrinhoLocal();
+    atualizarInterface();
 }
 
-// Recalcula o valor total da compra
 function calcularTotal() {
     let soma = 0;
     for (let i = 0; i < itensCarrinho.length; i++) {
@@ -94,60 +86,96 @@ function calcularTotal() {
     return valorTotal;
 }
 
-// Atualiza os valores exibidos no HTML
-function atualizarResumo() {
+function atualizarInterface() {
     let total = calcularTotal();
-    let spanTotal = document.getElementById("valor-total-exibido");
-    
+    let spanTotal = document.getElementById("valor-total");
+    let contadorItens = document.getElementById("qtd-itens");
+
     if (spanTotal) {
-        spanTotal.innerText = "R$ " + total.toFixed(2).replace(".", ",");
+        spanTotal.innerText = formatarPreco(total);
     }
-    
-    console.log("Resumo atualizado. Total de itens: " + itensCarrinho.length);
+
+    if (contadorItens) {
+        contadorItens.innerText = obterTotalItens();
+    }
 }
 
-// Limpa todos os itens do carrinho
+function obterTotalItens() {
+    let totalItens = 0;
+    for (let i = 0; i < itensCarrinho.length; i++) {
+        totalItens += itensCarrinho[i].qtd;
+    }
+    return totalItens;
+}
+
 function limparCarrinho() {
     itensCarrinho = [];
-    valorTotal = 0.0;
-    atualizarResumo();
-    console.log("Carrinho zerado.");
+    valorTotal = 0;
+    localStorage.removeItem("carrinho_sabor_clic");
+    atualizarInterface();
 }
 
-// Simula o envio do pedido para o KDS da cozinha
+function aplicarCupom(codigo) {
+    let cupomFormatado = codigo.trim().toUpperCase();
+    
+    if (cupomFormatado === "SABOR10") {
+        valorTotal = valorTotal * 0.9;
+        atualizarInterfaceComDesconto(10);
+    } else if (cupomFormatado === "IFSP20") {
+        valorTotal = valorTotal * 0.8;
+        atualizarInterfaceComDesconto(20);
+    }
+}
+
+function atualizarInterfaceComDesconto(porcentagem) {
+    let spanTotal = document.getElementById("valor-total");
+    if (spanTotal) {
+        spanTotal.innerText = formatarPreco(valorTotal) + " (" + porcentagem + "% off)";
+    }
+}
+
 function finalizarPedido() {
     if (itensCarrinho.length === 0) {
-        alert("O carrinho esta vazio!");
+        alert("Adicione pelo menos um item ao carrinho antes de enviar.");
         return;
     }
 
-    console.log("Enviando pedido para a cozinha...");
-    console.log("Itens do pedido:", itensCarrinho);
-    console.log("Total:", valorTotal);
+    let nomeCliente = document.getElementById("nome-cliente");
+    let observacao = document.getElementById("obs-pedido");
 
-    alert("Pedido enviado com sucesso para a cozinha!");
+    let resumoPedido = {
+        cliente: nomeCliente ? nomeCliente.value : "Cliente Balcão",
+        obs: observacao ? observacao.value : "",
+        itens: itensCarrinho,
+        total: valorTotal,
+        hora: new Date().toLocaleTimeString()
+    };
+
+    console.log("Enviando pedido para o KDS:", resumoPedido);
+    alert("Pedido enviado com sucesso!");
     limparCarrinho();
 }
 
-// Funcao utilitaria para formatar valores em Reais
-function formatarMoeda(valor) {
-    return "R$ " + parseFloat(valor).toFixed(2).replace(".", ",");
+function salvarCarrinhoLocal() {
+    localStorage.setItem("carrinho_sabor_clic", JSON.stringify(itensCarrinho));
 }
 
-// Funcoes secundarias para controle do painel KDS
-function atualizarStatusKDS(novoStatus) {
-    statusKds = novoStatus;
-    console.log("Status do KDS alterado para: " + statusKds);
-}
-
-function validarCamposFormulario() {
-    let nomeCliente = document.getElementById("nome-cliente");
-    let mesa = document.getElementById("numero-mesa");
-
-    if (nomeCliente && nomeCliente.value === "") {
-        console.log("Nome do cliente nao preenchido.");
-        return false;
+function carregarCarrinhoSalvo() {
+    let dadosSalvos = localStorage.getItem("carrinho_sabor_clic");
+    if (dadosSalvos) {
+        itensCarrinho = JSON.parse(dadosSalvos);
+        atualizarInterface();
     }
+}
 
-    return true;
-         }
+function formatarPreco(valor) {
+    return "R$ " + valor.toFixed(2).replace(".", ",");
+}
+
+function selecionarMesa(numero) {
+    mesaSelecionada = numero;
+    let labelMesa = document.getElementById("mesa-atual");
+    if (labelMesa) {
+        labelMesa.innerText = "Mesa: " + numero;
+    }
+}
