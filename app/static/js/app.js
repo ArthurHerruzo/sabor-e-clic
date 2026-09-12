@@ -1,6 +1,3 @@
-// Sabor e Clic - Sistema de Gestão para Dark Kitchen
-// Integrantes: Guilherme, Arthur, Henzo e Diandro
-// Turma 231 - IFSP
 
 let itensCarrinho = [];
 let valorTotal = 0;
