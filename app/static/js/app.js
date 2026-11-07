@@ -1,134 +1,134 @@
 /**
- * Classe responsável por centralizar todas as requisições HTTP (API Client)
- * Utiliza o padrão OOP e Fetch API para comunicar com o Backend Flask.
+ * Gerenciador da API do Sabor & Clic
+ * Atende aos requisitos de POO (ES6+), encasulamento (#) e Fetch API.
  */
 class SaborClicAPI {
+    // Campo privado para encapsulamento real (#)
+    #baseUrl;
+
     constructor(baseUrl = '/api') {
-        this.baseUrl = baseUrl;
+        this.#baseUrl = baseUrl;
     }
 
-    // 1. Buscar o cardápio ativo do banco de dados (GET)
     async listarCardapio() {
         try {
-            const response = await fetch(`${this.baseUrl}/cardapio`);
-            if (!response.ok) {
-                throw new Error('Erro ao carregar o cardápio do servidor.');
-            }
-            const itens = await response.json();
-            return itens;
+            const response = await fetch(`${this.#baseUrl}/cardapio`);
+            if (!response.ok) throw new Error('Erro ao carregar o cardápio.');
+            return await response.json();
         } catch (error) {
-            console.error('Erro na API (listarCardapio):', error);
+            console.error('Erro na requisição (listarCardapio):', error);
             return [];
         }
     }
 
-    // 2. Enviar um novo pedido para o backend salvar no SQLite (POST)
     async criarPedido(dadosPedido) {
         try {
-            const response = await fetch(`${this.baseUrl}/pedidos`, {
+            const response = await fetch(`${this.#baseUrl}/pedidos`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dadosPedido)
             });
 
-            if (!response.ok) {
-                throw new Error('Erro ao registrar o pedido.');
-            }
-
-            const resultado = await response.json();
-            return resultado;
-        } catch (error) {
-            console.error('Erro na API (criarPedido):', error);
-            return { erro: true, mensagem: error.message };
-        }
-    }
-
-    // 3. Buscar a fila de pedidos para a Cozinha / KDS (GET)
-    async obterFilaKDS() {
-        try {
-            const response = await fetch(`${this.baseUrl}/pedidos/kds`);
-            if (!response.ok) {
-                throw new Error('Erro ao carregar a fila da cozinha.');
-            }
+            if (!response.ok) throw new Error('Erro ao registrar o pedido.');
             return await response.json();
         } catch (error) {
-            console.error('Erro na API (obterFilaKDS):', error);
-            return [];
+            console.error('Erro na requisição (criarPedido):', error);
+            return { erro: true, mensagem: error.message };
         }
     }
 }
 
-
 /**
- * Classe responsável por gerenciar a interface do usuário (UI) e renderizar os dados na tela.
+ * Entidade Carrinho com estado encapsulado (#)
  */
-class SaborClicUI {
+class Carrinho {
+    #itens;
+
     constructor() {
-        this.api = new SaborClicAPI();
-        this.carrinho = []; // Armazena os itens selecionados pelo cliente
+        this.#itens = [];
     }
 
-    // Inicializa a aplicação na página principal
+    adicionarItem(item) {
+        this.#itens.push(item);
+    }
+
+    limpar() {
+        this.#itens = [];
+    }
+
+    get itens() {
+        return [...this.#itens];
+    }
+
+    get total() {
+        return this.#itens.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+    }
+}
+
+/**
+ * Gerenciador de Interface de Usuário (DOM)
+ */
+class SaborClicUI {
+    #api;
+    #carrinho;
+
+    constructor() {
+        this.#api = new SaborClicAPI();
+        this.#carrinho = new Carrinho();
+    }
+
     async inicializarCardapio(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        container.innerHTML = '<p>Carregando cardápio fresquinho...</p>';
+        container.innerHTML = '<p>Carregando cardápio...</p>';
+        const itens = await this.#api.listarCardapio();
 
-        const itensCardapio = await this.api.listarCardapio();
-
-        if (itensCardapio.length === 0) {
-            container.innerHTML = '<p>Nenhum item disponível no momento.</p>';
+        if (itens.length === 0) {
+            container.innerHTML = '<p>Nenhum item disponível.</p>';
             return;
         }
 
         container.innerHTML = '';
-        itensCardapio.forEach(item => {
+        itens.forEach(item => {
             const card = document.createElement('div');
-            card.classList.add('item-cardapio');
+            card.className = 'item-cardapio';
             card.innerHTML = `
                 <h3>${item.nome}</h3>
                 <p>${item.descricao}</p>
                 <span>R$ ${Number(item.preco).toFixed(2)}</span>
-                <button onclick="appUI.adicionarAoCarrinho(${item.id}, '${item.nome}', ${item.preco})">Adicionar</button>
+                <button onclick="appUI.adicionarItem(${item.id}, '${item.nome}', ${item.preco})">Adicionar</button>
             `;
             container.appendChild(card);
         });
     }
 
-    adicionarAoCarrinho(id, nome, preco) {
-        this.carrinho.push({ id, nome, preco, quantidade: 1 });
-        alert(`${nome} adicionado ao pedido!`);
-        console.log('Carrinho atual:', this.carrinho);
+    adicionarItem(id, nome, preco) {
+        this.#carrinho.adicionarItem({ id, nome, preco, quantidade: 1 });
+        alert(`${nome} adicionado ao carrinho!`);
     }
 
-    // Finalizar o pedido atual enviando para a API
     async finalizarPedido() {
-        if (this.carrinho.length === 0) {
+        if (this.#carrinho.itens.length === 0) {
             alert('Seu carrinho está vazio!');
             return;
         }
 
-        const totalGeral = this.carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-
         const payload = {
-            id_cliente: 1, // Exemplo de ID de cliente logado
-            total: totalGeral,
-            itens: this.carrinho.map(i => ({ id: i.id, quantidade: i.quantidade }))
+            id_cliente: 1,
+            total: this.#carrinho.total,
+            itens: this.#carrinho.itens.map(i => ({ id: i.id, quantidade: i.quantidade }))
         };
 
-        const resposta = await this.api.criarPedido(payload);
+        const resposta = await this.#api.criarPedido(payload);
 
         if (!resposta.erro) {
-            alert(`Pedido #${resposta.id_pedido} realizado com sucesso! Status: ${resposta.status}`);
-            this.carrinho = []; // Limpa o carrinho
+            alert(`Pedido #${resposta.id_pedido} realizado com sucesso!`);
+            this.#carrinho.limpar();
         } else {
-            alert('Não foi possível concluir o pedido. Tente novamente.');
+            alert('Falha ao registrar pedido.');
         }
     }
 }
 
-// Instância global para ser chamada nos elementos HTML
 const appUI = new SaborClicUI();
