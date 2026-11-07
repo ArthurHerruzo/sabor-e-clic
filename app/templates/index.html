@@ -3,43 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sabor & Clic - Cardápio Digital</title>
-
+    <title>Sabor & Clic - Cardápio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
-    <header class="main-header">
+    <header>
         <h1>Sabor & Clic</h1>
+        <p>Bem-vindo, {{ session.get('nome', 'Visitante') }}!</p>
+        {% if session.get('id_usuario') %}
+            <a href="{{ url_for('logout') }}">Sair</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Entrar</a>
+        {% endif %}
     </header>
 
-    <main class="main-content">
-        <section id="container-cardapio" aria-label="Cardápio"></section>
+    <main>
+        <h2>Nosso Cardápio</h2>
+        <!-- O JavaScript vai preencher os itens aqui dentro automaticamente -->
+        <div id="cardapio-container" class="grid-cardapio">
+            <p>Carregando pratos...</p>
+        </div>
 
-        <aside class="sidebar-carrinho">
-            <h2>Seu Carrinho</h2>
-            
-            <ul id="lista-carrinho"></ul>
-            <p id="total-carrinho">Total: <strong>R$ 0,00</strong></p>
-
-            <form id="form-pedido">
-                <div class="form-group">
-                    <label for="nome-cliente">Seu Nome</label>
-                    <input 
-                        type="text" 
-                        id="nome-cliente" 
-                        name="nome_cliente" 
-                        placeholder="Digite seu nome" 
-                        autocomplete="name"
-                        required
-                    >
-                </div>
-
-                <button type="submit" class="btn-submit">Finalizar Pedido</button>
-            </form>
-        </aside>
+        <button onclick="appUI.finalizarPedido()">Finalizar Pedido</button>
     </main>
 
+    <!-- Importa o script em POO que criamos -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Inicializa o cardápio assim que a página carrega
+        document.addEventListener('DOMContentLoaded', () => {
+            appUI.inicializarCardapio('cardapio-container');
+        });
+    </script>
 </body>
 </html>
