@@ -1,178 +1,134 @@
-
-let itensCarrinho = [];
-let valorTotal = 0;
-let mesaSelecionada = null;
-
-document.addEventListener("DOMContentLoaded", function() {
-    let btnFinalizar = document.getElementById("btn-finalizar");
-    let btnLimpar = document.getElementById("btn-limpar");
-    let inputCupom = document.getElementById("cupom-desconto");
-
-    if (btnFinalizar) {
-        btnFinalizar.addEventListener("click", function() {
-            finalizarPedido();
-        });
+/**
+ * Classe responsável por centralizar todas as requisições HTTP (API Client)
+ * Utiliza o padrão OOP e Fetch API para comunicar com o Backend Flask.
+ */
+class SaborClicAPI {
+    constructor(baseUrl = '/api') {
+        this.baseUrl = baseUrl;
     }
 
-    if (btnLimpar) {
-        btnLimpar.addEventListener("click", function() {
-            limparCarrinho();
-        });
-    }
-
-    if (inputCupom) {
-        inputCupom.addEventListener("change", function() {
-            aplicarCupom(inputCupom.value);
-        });
-    }
-
-    carregarCarrinhoSalvo();
-});
-
-function adicionarItem(idProduto, nomeProduto, precoProduto) {
-    if (!idProduto || !nomeProduto || precoProduto <= 0) {
-        return;
-    }
-
-    let itemEncontrado = false;
-
-    for (let i = 0; i < itensCarrinho.length; i++) {
-        if (itensCarrinho[i].id === idProduto) {
-            itensCarrinho[i].qtd += 1;
-            itemEncontrado = true;
-            break;
-        }
-    }
-
-    if (!itemEncontrado) {
-        let produto = {
-            id: idProduto,
-            nome: nomeProduto,
-            preco: parseFloat(precoProduto),
-            qtd: 1
-        };
-        itensCarrinho.push(produto);
-    }
-
-    salvarCarrinhoLocal();
-    atualizarInterface();
-}
-
-function removerItem(idProduto) {
-    for (let i = 0; i < itensCarrinho.length; i++) {
-        if (itensCarrinho[i].id === idProduto) {
-            if (itensCarrinho[i].qtd > 1) {
-                itensCarrinho[i].qtd -= 1;
-            } else {
-                itensCarrinho.splice(i, 1);
+    // 1. Buscar o cardápio ativo do banco de dados (GET)
+    async listarCardapio() {
+        try {
+            const response = await fetch(`${this.baseUrl}/cardapio`);
+            if (!response.ok) {
+                throw new Error('Erro ao carregar o cardápio do servidor.');
             }
-            break;
+            const itens = await response.json();
+            return itens;
+        } catch (error) {
+            console.error('Erro na API (listarCardapio):', error);
+            return [];
         }
     }
 
-    salvarCarrinhoLocal();
-    atualizarInterface();
-}
+    // 2. Enviar um novo pedido para o backend salvar no SQLite (POST)
+    async criarPedido(dadosPedido) {
+        try {
+            const response = await fetch(`${this.baseUrl}/pedidos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dadosPedido)
+            });
 
-function calcularTotal() {
-    let soma = 0;
-    for (let i = 0; i < itensCarrinho.length; i++) {
-        soma += itensCarrinho[i].preco * itensCarrinho[i].qtd;
+            if (!response.ok) {
+                throw new Error('Erro ao registrar o pedido.');
+            }
+
+            const resultado = await response.json();
+            return resultado;
+        } catch (error) {
+            console.error('Erro na API (criarPedido):', error);
+            return { erro: true, mensagem: error.message };
+        }
     }
-    valorTotal = soma;
-    return valorTotal;
-}
 
-function atualizarInterface() {
-    let total = calcularTotal();
-    let spanTotal = document.getElementById("valor-total");
-    let contadorItens = document.getElementById("qtd-itens");
-
-    if (spanTotal) {
-        spanTotal.innerText = formatarPreco(total);
-    }
-
-    if (contadorItens) {
-        contadorItens.innerText = obterTotalItens();
-    }
-}
-
-function obterTotalItens() {
-    let totalItens = 0;
-    for (let i = 0; i < itensCarrinho.length; i++) {
-        totalItens += itensCarrinho[i].qtd;
-    }
-    return totalItens;
-}
-
-function limparCarrinho() {
-    itensCarrinho = [];
-    valorTotal = 0;
-    localStorage.removeItem("carrinho_sabor_clic");
-    atualizarInterface();
-}
-
-function aplicarCupom(codigo) {
-    let cupomFormatado = codigo.trim().toUpperCase();
-    
-    if (cupomFormatado === "SABOR10") {
-        valorTotal = valorTotal * 0.9;
-        atualizarInterfaceComDesconto(10);
-    } else if (cupomFormatado === "IFSP20") {
-        valorTotal = valorTotal * 0.8;
-        atualizarInterfaceComDesconto(20);
+    // 3. Buscar a fila de pedidos para a Cozinha / KDS (GET)
+    async obterFilaKDS() {
+        try {
+            const response = await fetch(`${this.baseUrl}/pedidos/kds`);
+            if (!response.ok) {
+                throw new Error('Erro ao carregar a fila da cozinha.');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Erro na API (obterFilaKDS):', error);
+            return [];
+        }
     }
 }
 
-function atualizarInterfaceComDesconto(porcentagem) {
-    let spanTotal = document.getElementById("valor-total");
-    if (spanTotal) {
-        spanTotal.innerText = formatarPreco(valorTotal) + " (" + porcentagem + "% off)";
+
+/**
+ * Classe responsável por gerenciar a interface do usuário (UI) e renderizar os dados na tela.
+ */
+class SaborClicUI {
+    constructor() {
+        this.api = new SaborClicAPI();
+        this.carrinho = []; // Armazena os itens selecionados pelo cliente
+    }
+
+    // Inicializa a aplicação na página principal
+    async inicializarCardapio(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = '<p>Carregando cardápio fresquinho...</p>';
+
+        const itensCardapio = await this.api.listarCardapio();
+
+        if (itensCardapio.length === 0) {
+            container.innerHTML = '<p>Nenhum item disponível no momento.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        itensCardapio.forEach(item => {
+            const card = document.createElement('div');
+            card.classList.add('item-cardapio');
+            card.innerHTML = `
+                <h3>${item.nome}</h3>
+                <p>${item.descricao}</p>
+                <span>R$ ${Number(item.preco).toFixed(2)}</span>
+                <button onclick="appUI.adicionarAoCarrinho(${item.id}, '${item.nome}', ${item.preco})">Adicionar</button>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    adicionarAoCarrinho(id, nome, preco) {
+        this.carrinho.push({ id, nome, preco, quantidade: 1 });
+        alert(`${nome} adicionado ao pedido!`);
+        console.log('Carrinho atual:', this.carrinho);
+    }
+
+    // Finalizar o pedido atual enviando para a API
+    async finalizarPedido() {
+        if (this.carrinho.length === 0) {
+            alert('Seu carrinho está vazio!');
+            return;
+        }
+
+        const totalGeral = this.carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0);
+
+        const payload = {
+            id_cliente: 1, // Exemplo de ID de cliente logado
+            total: totalGeral,
+            itens: this.carrinho.map(i => ({ id: i.id, quantidade: i.quantidade }))
+        };
+
+        const resposta = await this.api.criarPedido(payload);
+
+        if (!resposta.erro) {
+            alert(`Pedido #${resposta.id_pedido} realizado com sucesso! Status: ${resposta.status}`);
+            this.carrinho = []; // Limpa o carrinho
+        } else {
+            alert('Não foi possível concluir o pedido. Tente novamente.');
+        }
     }
 }
 
-function finalizarPedido() {
-    if (itensCarrinho.length === 0) {
-        alert("Adicione pelo menos um item ao carrinho antes de enviar.");
-        return;
-    }
-
-    let nomeCliente = document.getElementById("nome-cliente");
-    let observacao = document.getElementById("obs-pedido");
-
-    let resumoPedido = {
-        cliente: nomeCliente ? nomeCliente.value : "Cliente Balcão",
-        obs: observacao ? observacao.value : "",
-        itens: itensCarrinho,
-        total: valorTotal,
-        hora: new Date().toLocaleTimeString()
-    };
-
-    console.log("Enviando pedido para o KDS:", resumoPedido);
-    alert("Pedido enviado com sucesso!");
-    limparCarrinho();
-}
-
-function salvarCarrinhoLocal() {
-    localStorage.setItem("carrinho_sabor_clic", JSON.stringify(itensCarrinho));
-}
-
-function carregarCarrinhoSalvo() {
-    let dadosSalvos = localStorage.getItem("carrinho_sabor_clic");
-    if (dadosSalvos) {
-        itensCarrinho = JSON.parse(dadosSalvos);
-        atualizarInterface();
-    }
-}
-
-function formatarPreco(valor) {
-    return "R$ " + valor.toFixed(2).replace(".", ",");
-}
-
-function selecionarMesa(numero) {
-    mesaSelecionada = numero;
-    let labelMesa = document.getElementById("mesa-atual");
-    if (labelMesa) {
-        labelMesa.innerText = "Mesa: " + numero;
-    }
-}
+// Instância global para ser chamada nos elementos HTML
+const appUI = new SaborClicUI();
