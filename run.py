@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from database import get_db, close_db
-from routes.api_routes import api_bp
+from routes.routes import api_bp
 
 app = Flask(_name_)
 app.secret_key = 'sabor_clic_secret_key_2026'
