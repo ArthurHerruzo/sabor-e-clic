@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Sabor & Clic - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <h2>Entrar no Sabor & Clic</h2>
+        
+        <!-- Mensagens flash do Flask -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul>
+              {% for category, message in messages %}
+                <li class="{{ category }}">{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <label>E-mail:</label>
+            <input type="email" name="email" required>
+            
+            <label>Senha:</label>
+            <input type="password" name="senha" required>
+            
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>
