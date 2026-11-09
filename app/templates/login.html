@@ -6,29 +6,33 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="login-container">
-        <h2>Entrar no Sabor & Clic</h2>
-        
-        <!-- Mensagens flash do Flask -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <ul>
-              {% for category, message in messages %}
-                <li class="{{ category }}">{{ message }}</li>
-              {% endfor %}
-            </ul>
-          {% endif %}
-        {% endwith %}
+    <div class="login-wrapper">
+        <div class="login-container">
+            <h2>Sabor & Clic</h2>
+            
+            <!-- Mensagens flash renderizadas como alertas -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
 
-        <form method="POST">
-            <label>E-mail:</label>
-            <input type="email" name="email" required>
+            <form method="POST">
+                <label>E-mail:</label>
+                <input type="email" name="email" required placeholder="Digite seu e-mail">
+                
+                <label>Senha:</label>
+                <input type="password" name="senha" required placeholder="Sua senha">
+                
+                <button type="submit">Entrar no Sistema</button>
+            </form>
             
-            <label>Senha:</label>
-            <input type="password" name="senha" required>
-            
-            <button type="submit">Entrar</button>
-        </form>
+            <p style="margin-top: 24px; font-size: 14px; text-align: center; color: #666;">
+                Ainda não tem uma conta? <br> <a href="{{ url_for('web.registro') }}" style="display: inline-block; margin-top: 8px;">Cadastre-se grátis</a>
+            </p>
+        </div>
     </div>
 </body>
 </html>

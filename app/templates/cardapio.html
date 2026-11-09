@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabor & Clic - Cardápio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Sabor & Clic</h1>
+        <div class="user-info">
+            <p>Bem-vindo, <strong>{{ session.get('nome', 'Visitante') }}</strong>!</p>
+            {% if session.get('id_usuario') %}
+                <a href="{{ url_for('web.logout') }}">Sair</a>
+            {% else %}
+                <a href="{{ url_for('web.login') }}">Entrar</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main>
+        <!-- Área esquerda: Produtos -->
+        <div style="flex: 2;">
+            <h2>Nosso Cardápio</h2>
+            <div id="container-cardapio" class="grid-cardapio">
+                <p style="color: #666;">Carregando pratos...</p>
+            </div>
+        </div>
+
+        <!-- Área direita: Carrinho -->
+        <aside>
+            <h2>Seu Pedido</h2>
+            <ul id="lista-carrinho">
+                <!-- Itens do carrinho aparecerão aqui -->
+            </ul>
+            <p id="total-carrinho">Total: R$ 0,00</p>
+            <button onclick="appUI.finalizarPedido()">Finalizar Pedido</button>
+        </aside>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            appUI.inicializarCardapio('container-cardapio');
+        });
+    </script>
+</body>
+</html>

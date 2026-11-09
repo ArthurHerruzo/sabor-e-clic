@@ -1,46 +1,21 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from database import get_db, close_db
-from routes.routes import api_bp
+from flask import Flask
+from app.database import close_db
 
-app = Flask(_name_)
+# Importa os Blueprints de rotas da API e das páginas Web
+from app.routes.api_routes import api_bp
+from app.routes.web_routes import web_bp
+
+app = Flask(__name__, template_folder='app/templates', static_folder='app/static')
 app.secret_key = 'sabor_clic_secret_key_2026'
 
-# Encerra conexão com o SQLite ao finalizar requisição
+# Encerra a conexão com o SQLite ao finalizar cada requisição
 app.teardown_appcontext(close_db)
 
-# Registra as rotas da API com o prefixo /api
+# Registra as rotas da API com o prefixo /api (ex: /api/cardapio)
 app.register_blueprint(api_bp, url_prefix='/api')
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# Registra as rotas Web do site (ex: /, /login, /cardapio, /registro)
+app.register_blueprint(web_bp)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form['email']
-        senha = request.form['senha']
-        
-        db = get_db()
-        usuario = db.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
-        
-        if usuario and usuario['senha_hash'] == senha:
-            session['id_usuario'] = usuario['id_usuario']
-            session['nome'] = usuario['nome']
-            session['nivel_acesso'] = usuario['nivel_acesso']
-            
-            flash('Login realizado com sucesso!', 'sucesso')
-            return redirect(url_for('index'))
-        else:
-            flash('E-mail ou senha incorretos.', 'erro')
-            
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('Você saiu do sistema.', 'info')
-    return redirect(url_for('login'))
-
-if _name_ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
