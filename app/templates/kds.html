@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel da Cozinha | Sabor & Clic</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="pagina-kds">
+
+    <header class="topo-kds">
+        <h1>Sabor & Clic</h1>
+        <div>
+            <span>Painel da Cozinha</span>
+            <a href="{{ url_for('web.logout') }}">Sair</a>
+        </div>
+    </header>
+
+    <main class="container-kds">
+        <h2>Pedidos recebidos</h2>
+        <p>Acompanhe os pedidos e atualize seus status.</p>
+
+        <div id="lista-pedidos" class="lista-pedidos">
+            <p>Carregando pedidos...</p>
+        </div>
+
+        <section class="secao-reservas">
+            <h2>Reservas</h2>
+            <div id="lista-reservas">
+                Carregando reservas...
+            </div>
+        </section>
+    </main>
+
+    <script>
+        async function carregarPedidos() {
+            const lista = document.getElementById('lista-pedidos');
+
+            try {
+                const resposta = await fetch('/api/pedidos/kds');
+                const pedidos = await resposta.json();
+
+                if (!resposta.ok) {
+                    lista.innerHTML = `<p>${pedidos.erro || 'Erro ao carregar pedidos.'}</p>`;
+                    return;
+                }
+
+                if (pedidos.length === 0) {
+                    lista.innerHTML = '<p>Nenhum pedido encontrado.</p>';
+                    return;
+                }
+
+                const agrupados = {};
+
+                pedidos.forEach(pedido => {
+                    if (!agrupados[pedido.id_pedido]) {
+                        agrupados[pedido.id_pedido] = {
+                            ...pedido,
+                            itens: []
+                        };
+                    }
+
+                    agrupados[pedido.id_pedido].itens.push({
+                        nome: pedido.nome_item,
+                        quantidade: pedido.quantidade
+                    });
+                });
+
+                lista.innerHTML = Object.values(agrupados).map(pedido => `
+                    <article class="card-pedido">
+                        <h3>Pedido #${pedido.id_pedido}</h3>
+                        <p><strong>Cliente:</strong> ${pedido.nome_cliente}</p>
+                        <p><strong>Status:</strong> ${pedido.status}</p>
+
+                        <ul>
+                            ${pedido.itens.map(item => `
+                                <li>${item.quantidade}x ${item.nome}</li>
+                            `).join('')}
+                        </ul>
+
+                        <p><strong>Total:</strong> R$ ${pedido.total.toFixed(2)}</p>
+
+                        <label for="status-${pedido.id_pedido}">Alterar status:</label>
+                        <select id="status-${pedido.id_pedido}">
+                            <option value="AGUARDANDO" ${pedido.status === 'AGUARDANDO' ? 'selected' : ''}>Aguardando</option>
+                            <option value="PREPARO" ${pedido.status === 'PREPARO' ? 'selected' : ''}>Em preparo</option>
+                            <option value="PRONTO" ${pedido.status === 'PRONTO' ? 'selected' : ''}>Pronto</option>
+                            <option value="FINALIZADO" ${pedido.status === 'FINALIZADO' ? 'selected' : ''}>Finalizado</option>
+                        </select>
+
+                        <button onclick="atualizarStatus(${pedido.id_pedido})">
+                            Atualizar status
+                        </button>
+                    </article>
+                `).join('');
+
+            } catch (erro) {
+                lista.innerHTML = '<p>Não foi possível carregar os pedidos.</p>';
+            }
+        }
+
+        async function carregarReservas() {
+            const lista = document.getElementById('lista-reservas');
+
+            try {
+                const resposta = await fetch('/api/reservas/kds');
+
+                if (!resposta.ok) {
+                throw new Error('Não foi possível carregar as reservas.');
+                }
+
+                const reservas = await resposta.json();
+
+                if (reservas.length === 0) {
+                lista.innerHTML = '<p>Nenhuma reserva cadastrada.</p>';
+                return;
+                }
+
+                lista.innerHTML = reservas.map(reserva => `
+                <div class="card-reserva">
+                    <h3>Reserva #${reserva.id_reserva}</h3>
+
+                    <p><strong>Cliente:</strong> ${reserva.nome_cliente}</p>
+                    <p><strong>Mesa:</strong> ${reserva.numero_mesa}</p>
+                    <p><strong>Capacidade da mesa:</strong> ${reserva.capacidade} pessoas</p>
+                    <p><strong>Quantidade de pessoas:</strong> ${reserva.quantidade_pessoas}</p>
+                    <p><strong>Início:</strong> ${reserva.inicio.replace('T', ' ')}</p>
+                    <p><strong>Término:</strong> ${reserva.fim.replace('T', ' ')}</p>
+                    <p><strong>Status:</strong> ${reserva.status}</p>
+                </div>
+                `).join('');
+
+            } catch (erro) {
+                lista.innerHTML = '<p>Erro ao carregar as reservas.</p>';
+                console.error(erro);
+            }
+        }
+
+        async function atualizarStatus(id) {
+            const status = document.getElementById(`status-${id}`).value;
+
+            try {
+                const resposta = await fetch(`/api/pedidos/${id}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                const resultado = await resposta.json();
+
+                if (!resposta.ok) {
+                    alert(resultado.erro || 'Erro ao atualizar status.');
+                    return;
+                }
+
+                alert('Status atualizado!');
+                carregarPedidos();
+
+            } catch (erro) {
+                alert('Não foi possível atualizar o pedido.');
+            }
+        }
+
+        carregarPedidos();
+        setInterval(carregarPedidos, 15000);
+
+        carregarReservas();
+
+        setInterval(carregarReservas, 15000);
+    </script>
+
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
+    
+</body>
+</html>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -6,20 +7,22 @@
     <title>Sabor & Clic - Cardápio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
     <header>
         <h1>Sabor & Clic</h1>
         <p>Bem-vindo, {{ session.get('nome', 'Visitante') }}!</p>
+
         {% if session.get('id_usuario') %}
-            <a href="{{ url_for('logout') }}">Sair</a>
+            <a href="{{ url_for('web.logout') }}">Sair</a>
         {% else %}
-            <a href="{{ url_for('login') }}">Entrar</a>
+            <a href="{{ url_for('web.login') }}">Entrar</a>
         {% endif %}
     </header>
 
     <main>
         <h2>Nosso Cardápio</h2>
-        <!-- O JavaScript vai preencher os itens aqui dentro automaticamente -->
+
         <div id="cardapio-container" class="grid-cardapio">
             <p>Carregando pratos...</p>
         </div>
@@ -27,13 +30,14 @@
         <button onclick="appUI.finalizarPedido()">Finalizar Pedido</button>
     </main>
 
-    <!-- Importa o script em POO que criamos -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
     <script>
-        // Inicializa o cardápio assim que a página carrega
         document.addEventListener('DOMContentLoaded', () => {
             appUI.inicializarCardapio('cardapio-container');
         });
     </script>
+
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
 </body>
 </html>

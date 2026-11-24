@@ -1,38 +1,84 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Sabor & Clic - Login</title>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-    <div class="login-wrapper">
+
+<body class="pagina-login">
+
+    <main class="login-wrapper">
+
         <div class="login-container">
-            <h2>Sabor & Clic</h2>
-            
-            <!-- Mensagens flash renderizadas como alertas -->
+
+            <a href="{{ url_for('main.index') }}" class="login-logo">
+                Sabor <span>&</span> Clic
+            </a>
+
+            <div class="login-titulo">
+                <h2>Bem-vindo de volta!</h2>
+                <p>Entre na sua conta para continuar.</p>
+            </div>
+
             {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert {{ category }}">{{ message }}</div>
-                {% endfor %}
-              {% endif %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
             {% endwith %}
 
             <form method="POST">
-                <label>E-mail:</label>
-                <input type="email" name="email" required placeholder="Digite seu e-mail">
-                
-                <label>Senha:</label>
-                <input type="password" name="senha" required placeholder="Sua senha">
-                
-                <button type="submit">Entrar no Sistema</button>
+
+                <div class="campo-login">
+                    <label for="email">E-mail</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        placeholder="Digite seu e-mail"
+                    >
+                </div>
+
+                <div class="campo-login">
+                    <label for="senha">Senha</label>
+                    <input
+                        type="password"
+                        id="senha"
+                        name="senha"
+                        required
+                        placeholder="Digite sua senha"
+                    >
+                </div>
+
+                <button type="submit" class="botao-login">
+                    Entrar no sistema
+                </button>
+
             </form>
-            
-            <p style="margin-top: 24px; font-size: 14px; text-align: center; color: #666;">
-                Ainda não tem uma conta? <br> <a href="{{ url_for('web.registro') }}" style="display: inline-block; margin-top: 8px;">Cadastre-se grátis</a>
-            </p>
+
+            <div class="login-cadastro">
+                <p>Ainda não tem uma conta?</p>
+                <a href="{{ url_for('web.registro') }}">
+                    Cadastre-se grátis
+                </a>
+            </div>
+
+            <a href="{{ url_for('main.index') }}" class="voltar-login">
+                ← Voltar para o início
+            </a>
+
         </div>
-    </div>
+
+    </main>
+
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
+
 </body>
 </html>

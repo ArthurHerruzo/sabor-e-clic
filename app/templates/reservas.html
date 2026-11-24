@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservar Mesa | Sabor & Clic</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="pagina-reservas">
+
+    <header class="topo-reservas">
+        <h1>Sabor & Clic</h1>
+        <nav>
+            <a href="{{ url_for('web.cardapio') }}">Cardápio</a>
+            <a href="{{ url_for('web.logout') }}">Sair</a>
+        </nav>
+    </header>
+
+    <main class="container-reservas">
+
+        <h2>Reserve sua mesa</h2>
+        <p>Escolha a data, o horário e a quantidade de pessoas.</p>
+
+        {% with mensagens = get_flashed_messages(with_categories=true) %}
+            {% for categoria, mensagem in mensagens %}
+                <div class="mensagem-reserva {{ categoria }}">
+                    {{ mensagem }}
+                </div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('web.reservas') }}" class="form-reservas">
+
+            <label for="inicio">Data e horário de início</label>
+            <input type="datetime-local" id="inicio" name="inicio" required>
+
+            <label for="fim">Data e horário de término</label>
+            <input type="datetime-local" id="fim" name="fim" required>
+
+            <label for="quantidade_pessoas">Quantidade de pessoas</label>
+            <select id="quantidade_pessoas" name="quantidade_pessoas" required>
+                <option value="">Selecione</option>
+                {% for numero in range(1, 7) %}
+                    <option value="{{ numero }}">{{ numero }} pessoa(s)</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Consultar mesas disponíveis</button>
+        </form>
+
+        {% if mesas %}
+            <section class="resultado-mesas">
+                <h3>Mesas disponíveis</h3>
+                <p>Escolha uma das mesas abaixo:</p>
+
+                <form method="POST" action="{{ url_for('web.criar_reserva') }}">
+
+                    <input type="hidden" name="inicio" value="{{ request.form.get('inicio', '') }}">
+                    <input type="hidden" name="fim" value="{{ request.form.get('fim', '') }}">
+                    <input type="hidden" name="quantidade_pessoas" value="{{ request.form.get('quantidade_pessoas', '') }}">
+
+                    <div class="lista-mesas">
+                        {% for mesa in mesas %}
+                            <label class="card-mesa">
+                                <input type="radio" name="id_mesa"
+                                       value="{{ mesa['id_mesa'] }}" required>
+
+                                <span>
+                                    Mesa {{ mesa['numero_mesa'] }}
+                                    <small>{{ mesa['capacidade'] }} lugares</small>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+
+                    <button type="submit">Confirmar reserva</button>
+                </form>
+            </section>
+        {% endif %}
+
+    </main>
+
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
+    
+</body>
+</html>

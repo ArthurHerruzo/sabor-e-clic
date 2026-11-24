@@ -1,107 +1,153 @@
-from app.database import get_db
+from flask import Blueprint, jsonify, request, session
+from app.models.api_model import CardapioModel, PedidoModel
+from app.models.reserva_model import ReservaModel
+
+api_bp = Blueprint('api', __name__)
 
 
-class CardapioModel:
+@api_bp.route('/cardapio', methods=['GET'])
+def listar_cardapio():
+    itens = CardapioModel.listar_ativos()
+    lista = []
 
-    @staticmethod
-    def listar_ativos():
-        db = get_db()
+    for item in itens:
+        lista.append({
+            "id": item["id_item"],
+            "nome": item["nome"],
+            "descricao": item["descricao"],
+            "preco": float(item["preco"]),
+            "categoria": item["categoria"],
+            "imagem": item["imagem"],
+            "ativo": bool(item["status_ativo"])
+        })
 
-        cursor = db.execute("""
-            SELECT id_item, nome, descricao, preco,
-                   status_ativo, categoria, imagem
-            FROM itens_cardapio
-            WHERE status_ativo = 1
-            ORDER BY categoria, nome
-        """)
-
-        return cursor.fetchall()
+    return jsonify(lista), 200
 
 
-class PedidoModel:
+@api_bp.route('/pedidos', methods=['POST'])
+def criar_pedido():
+    if 'id_usuario' not in session:
+        return jsonify({
+            "erro": "Faça login para realizar o pedido."
+        }), 401
 
-    @staticmethod
-    def criar_pedido(id_cliente, valor_total, itens):
-        db = get_db()
+    dados = request.get_json(silent=True)
 
+    if not dados or not isinstance(dados.get('itens'), list) or not dados['itens']:
+        return jsonify({
+            "erro": "Adicione produtos ao carrinho."
+        }), 400
+
+    cardapio = CardapioModel.listar_ativos()
+    produtos = {item["id_item"]: item for item in cardapio}
+
+    itens_pedido = []
+    valor_total = 0
+
+    for item in dados['itens']:
         try:
-            cursor = db.execute("""
-                INSERT INTO pedidos
-                (id_cliente, status_pedido, valor_total)
-                VALUES (?, ?, ?)
-            """, (id_cliente, 'AGUARDANDO', valor_total))
+            id_item = int(item['id'])
+            quantidade = int(item['quantidade'])
+        except (KeyError, TypeError, ValueError):
+            return jsonify({
+                "erro": "Produto ou quantidade inválida."
+            }), 400
 
-            id_pedido = cursor.lastrowid
+        if quantidade < 1 or id_item not in produtos:
+            return jsonify({
+                "erro": "Produto indisponível."
+            }), 400
 
-            for item in itens:
-                db.execute("""
-                    INSERT INTO itens_pedido
-                    (id_pedido, id_item, quantidade)
-                    VALUES (?, ?, ?)
-                """, (
-                    id_pedido,
-                    item['id'],
-                    item['quantidade']
-                ))
+        produto = produtos[id_item]
+        valor_total += float(produto["preco"]) * quantidade
 
-            db.commit()
-            return id_pedido
+        itens_pedido.append({
+            "id": id_item,
+            "quantidade": quantidade
+        })
 
-        except Exception:
-            db.rollback()
-            raise
+    id_pedido = PedidoModel.criar_pedido(
+        session['id_usuario'],
+        round(valor_total, 2),
+        itens_pedido
+    )
 
-    @staticmethod
-    def obter_fila_kds():
-        db = get_db()
+    return jsonify({
+        "mensagem": "Pedido realizado com sucesso!",
+        "id_pedido": id_pedido,
+        "total": round(valor_total, 2),
+        "status": "AGUARDANDO"
+    }), 201
 
-        return db.execute("""
-            SELECT
-                p.id_pedido,
-                p.id_cliente,
-                u.nome AS nome_cliente,
-                p.status_pedido,
-                p.valor_total,
-                ip.quantidade,
-                i.nome AS nome_item
-            FROM pedidos p
-            INNER JOIN usuarios u
-                ON p.id_cliente = u.id_usuario
-            INNER JOIN itens_pedido ip
-                ON p.id_pedido = ip.id_pedido
-            INNER JOIN itens_cardapio i
-                ON ip.id_item = i.id_item
-            ORDER BY p.id_pedido DESC
-        """).fetchall()
 
-    @staticmethod
-    def atualizar_status(id_pedido, novo_status):
-        db = get_db()
+@api_bp.route('/pedidos/kds', methods=['GET'])
+def obter_fila_kds():
+    if 'id_usuario' not in session:
+        return jsonify({"erro": "Faça login para acessar os pedidos."}), 401
 
-        status_validos = [
-            'AGUARDANDO',
-            'PREPARO',
-            'PRONTO',
-            'FINALIZADO'
-        ]
+    if session.get('nivel_acesso') not in ['ADMIN', 'COZINHEIRO']:
+        return jsonify({"erro": "Você não tem permissão para acessar os pedidos."}), 403
 
-        if novo_status not in status_validos:
-            return False
+    pedidos = PedidoModel.obter_fila_kds()
+    lista = []
 
-        pedido = db.execute("""
-            SELECT id_pedido
-            FROM pedidos
-            WHERE id_pedido = ?
-        """, (id_pedido,)).fetchone()
+    for pedido in pedidos:
+        lista.append({
+            "id_pedido": pedido["id_pedido"],
+            "id_cliente": pedido["id_cliente"],
+            "nome_cliente": pedido["nome_cliente"],
+            "status": pedido["status_pedido"],
+            "total": float(pedido["valor_total"]),
+            "nome_item": pedido["nome_item"],
+            "quantidade": pedido["quantidade"]
+        })
 
-        if not pedido:
-            return False
+    return jsonify(lista), 200
 
-        db.execute("""
-            UPDATE pedidos
-            SET status_pedido = ?
-            WHERE id_pedido = ?
-        """, (novo_status, id_pedido))
 
-        db.commit()
-        return True
+@api_bp.route('/pedidos/<int:id_pedido>/status', methods=['PUT'])
+def atualizar_status_pedido(id_pedido):
+    if 'id_usuario' not in session:
+        return jsonify({"erro": "Faça login para continuar."}), 401
+
+    if session.get('nivel_acesso') not in ['ADMIN', 'COZINHEIRO']:
+        return jsonify({"erro": "Você não tem permissão."}), 403
+
+    dados = request.get_json(silent=True)
+
+    if not dados:
+        return jsonify({"erro": "Dados inválidos."}), 400
+
+    novo_status = dados.get('status')
+    sucesso = PedidoModel.atualizar_status(id_pedido, novo_status)
+
+    if not sucesso:
+        return jsonify({"erro": "Pedido ou status inválido."}), 400
+
+    return jsonify({"mensagem": "Status atualizado com sucesso!"}), 200
+
+
+@api_bp.route('/reservas/kds', methods=['GET'])
+def listar_reservas_kds():
+    if 'id_usuario' not in session:
+        return jsonify({"erro": "Faça login para continuar."}), 401
+
+    if session.get('nivel_acesso') not in ['ADMIN', 'COZINHEIRO']:
+        return jsonify({"erro": "Você não tem permissão."}), 403
+
+    reservas = ReservaModel.listar_reservas()
+    lista = []
+
+    for reserva in reservas:
+        lista.append({
+            "id_reserva": reserva["id_reserva"],
+            "nome_cliente": reserva["nome_cliente"],
+            "numero_mesa": reserva["numero_mesa"],
+            "capacidade": reserva["capacidade"],
+            "quantidade_pessoas": reserva["quantidade_pessoas"],
+            "inicio": reserva["data_hora_inicio"],
+            "fim": reserva["data_hora_fim"],
+            "status": reserva["status"]
+        })
+
+    return jsonify(lista), 200
